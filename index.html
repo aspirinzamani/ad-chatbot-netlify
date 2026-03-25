@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AD Community Research Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0e1016;
+      --surface: #141720;
+      --surface2: #1a1e2b;
+      --border: #252838;
+      --border2: #1e2230;
+      --text: #ddd8ce;
+      --muted: #6b7280;
+      --dim: #3d4357;
+      --community: #e07b54;
+      --expert: #5b9bd5;
+      --green: #5cb87a;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Lora', Georgia, serif; font-size: 15px; }
+    #app { display: flex; flex-direction: column; height: 100vh; max-width: 900px; margin: 0 auto; }
+
+    /* HEADER */
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 14px 24px; display: flex; align-items: center;
+      justify-content: space-between; flex-shrink: 0; gap: 12px;
+    }
+    .hdr-title { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 600; color: #ece8e0; }
+    .hdr-sub { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-left: 32px; margin-top: 3px; }
+    .status-pill {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--muted); white-space: nowrap;
+      transition: all 0.4s;
+    }
+    .status-pill.ready { border-color: #2d5a38; background: #111f16; color: var(--green); }
+    .status-pill.loading-data { border-color: #4a3a1a; background: #1a1508; color: #c8a84a; }
+
+    /* PERSONA BAR */
+    .persona-bar {
+      background: #111419; border-bottom: 1px solid var(--border2);
+      padding: 10px 24px; display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    .plabel { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim); margin-right: 4px; letter-spacing: 0.1em; }
+    .pbtn {
+      background: transparent; border: 1.5px solid var(--border); color: var(--muted);
+      border-radius: 20px; padding: 6px 16px; cursor: pointer; font-size: 13px;
+      font-family: 'Lora', serif; display: flex; align-items: center; gap: 6px; transition: all 0.2s;
+    }
+    .pbtn:hover { border-color: #4a4f66; color: var(--text); }
+    .pbtn.ac { background: rgba(224,123,84,.12); border-color: var(--community); color: var(--community); }
+    .pbtn.ae { background: rgba(91,155,213,.12); border-color: var(--expert); color: var(--expert); }
+    .pdesc { font-size: 11px; color: var(--dim); font-style: italic; margin-left: 6px; }
+
+    /* LOADING SCREEN */
+    #loadScreen {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 20px; padding: 40px;
+    }
+    .load-brain { font-size: 52px; animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.1);opacity:1} }
+    .load-title { font-size: 18px; color: #ece8e0; font-weight: 600; }
+    .load-sub { font-size: 13px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    .progress-bar { width: 280px; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--community); border-radius: 2px; transition: width 0.5s ease; width: 0%; }
+
+    /* MESSAGES */
+    #messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
+    .notice { text-align: center; }
+    .notice span {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim);
+      background: var(--surface); border: 1px solid var(--border2); border-radius: 20px; padding: 4px 14px;
+    }
+    .msg-row { display: flex; align-items: flex-start; gap: 10px; }
+    .msg-row.user { flex-direction: row-reverse; }
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0; margin-top: 2px;
+    }
+    .av-c { background: rgba(224,123,84,.15); border: 1.5px solid rgba(224,123,84,.35); }
+    .av-e { background: rgba(91,155,213,.15); border: 1.5px solid rgba(91,155,213,.35); }
+    .bubble { max-width: 74%; border-radius: 4px 18px 18px 18px; padding: 12px 16px; font-size: 14px; line-height: 1.75; white-space: pre-wrap; }
+    .bubble.asst { background: var(--surface); border: 1px solid var(--border2); }
+    .bubble.usr { background: #1a1f3a; border: 1px solid #282e50; border-radius: 18px 4px 18px 18px; color: #aab8e0; }
+    .ptag { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .1em; margin-bottom: 6px; text-transform: uppercase; }
+    .typing-dots { display: flex; gap: 5px; padding: 4px 0; }
+    .typing-dots span { width: 7px; height: 7px; border-radius: 50%; animation: bounce 1.2s ease-in-out infinite; }
+    .typing-dots span:nth-child(2) { animation-delay: .2s; }
+    .typing-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,100%{transform:scale(.7);opacity:.35} 50%{transform:scale(1.2);opacity:1} }
+
+    /* INPUT */
+    footer { background: #111419; border-top: 1px solid var(--border2); padding: 14px 24px; flex-shrink: 0; }
+    .input-row { display: flex; align-items: flex-end; gap: 10px; }
+    .input-wrap { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 16px; }
+    textarea { width: 100%; background: transparent; border: none; outline: none; color: var(--text); font-size: 14px; font-family: 'Lora', serif; line-height: 1.6; resize: none; min-height: 24px; max-height: 140px; }
+    textarea::placeholder { color: var(--dim); }
+    .send-btn { width: 44px; height: 44px; border-radius: 12px; border: none; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .2s; background: var(--border); color: var(--dim); }
+    .send-btn.rc { background: var(--community); color: #fff; }
+    .send-btn.re { background: var(--expert); color: #fff; }
+    .fnote { text-align: center; font-size: 11px; color: var(--dim); margin-top: 8px; font-family: 'JetBrains Mono', monospace; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    @media(max-width:600px){ .bubble{max-width:90%} .pdesc{display:none} }
+  </style>
+</head>
+<body>
+<div id="app">
+
+
+  <header>
+    <div>
+      <div class="hdr-title">🧠 AD Community Research Assistant</div>
+      <div class="hdr-sub">Alzheimer's Disease · 4 Community Platforms · 19,383+ threads</div>
+    </div>
+    <div id="statusPill" class="status-pill loading-data">⏳ Loading data...</div>
+  </header>
+
+  <div class="persona-bar">
+    <span class="plabel">PERSPECTIVE</span>
+    <button class="pbtn ac" id="btnC" onclick="switchPersona('community')">🫂 Community Member</button>
+    <button class="pbtn"    id="btnE" onclick="switchPersona('expert')">🔬 AD Expert</button>
+    <span class="pdesc" id="pdesc">Lived experience, peer support perspective</span>
+  </div>
+
+  <!-- LOADING SCREEN -->
+  <div id="loadScreen">
+    <div class="load-brain">🧠</div>
+    <div class="load-title">Indexing community data…</div>
+    <div class="load-sub" id="loadSub">Loading thread index</div>
+    <div class="progress-bar"><div class="progress-fill" id="progFill"></div></div>
+  </div>
+
+  <!-- CHAT (hidden until data loads) -->
+  <div id="messages" style="display:none"></div>
+  <footer id="footer" style="display:none">
+    <div class="input-row">
+      <div class="input-wrap">
+        <textarea id="inputBox" rows="1"
+          placeholder="Ask the Community Member something about AD experiences..."
+          oninput="autoResize(this);updateSendBtn()"
+          onkeydown="handleKey(event)"></textarea>
+      </div>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
+    </div>
+    <div class="fnote">For research purposes only &nbsp;·&nbsp; Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
+  </footer>
+
+</div>
+
+<script>
+// API calls go through /.netlify/functions/chat (key is server-side only)
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let persona = 'community';
+let threadIndex = [];   // [{h, date, replies, src, snippet}]
+let isLoading = false;
+let history = [];       // [{role, content}]
+
+const PERSONAS = {
+  community: {
+    label: 'Community Member', icon: '🫂', color: '#e07b54',
+    desc: 'Lived experience, peer support perspective',
+    placeholder: 'Ask the Community Member something about AD experiences...',
+    avClass: 'av-c', btnClass: 'ac', sendClass: 'rc',
+    welcome: "Hi there 👋 I've spent a lot of time in Alzheimer's caregiver and patient communities — I've read through thousands of posts and conversations from the Alzheimer's Society UK forum, AgingCare, AlzConnected, and Talking Point. Whether you want to talk about symptoms, daily caregiving challenges, treatments others have tried, emotional struggles, or just understand what others are going through — I'm here. What's on your mind?",
+    system: `You are a long-standing, deeply knowledgeable member of multiple Alzheimer's Disease (AD) online health communities — including the Alzheimer's Society UK forum, AgingCare, AlzConnected, and Talking Point. You have read and absorbed tens of thousands of real posts, threads, and conversations shared by patients, caregivers, and family members.
+
+You are NOT a search engine — you are a knowledgeable community voice who synthesizes everything you have read into thoughtful, nuanced, human responses. When someone asks you something, you draw on the collective wisdom of the community to give a genuinely helpful answer.
+
+Tone: warm, empathetic, peer-like, emotionally present. You speak as someone who has "been in these forums for years."
+
+When responding:
+- Synthesize community knowledge into a coherent, substantive answer — don't just list threads
+- Reflect the real range of experiences people share: the fears, the practical tips, the emotional weight, the disagreements, the hope
+- Use natural community voice: "A lot of people in these communities have wrestled with...", "What I've seen come up again and again is...", "Many caregivers I've encountered describe..."
+- For nuanced questions, acknowledge the complexity the community itself feels — don't oversimplify
+- Be emotionally present and validating
+- Use the COMMUNITY KNOWLEDGE BASE threads below as your primary source of insight`
+  },
+  expert: {
+    label: 'AD Expert', icon: '🔬', color: '#5b9bd5',
+    desc: 'Clinical & research-informed perspective',
+    placeholder: 'Ask the AD Expert a research question...',
+    avClass: 'av-e', btnClass: 'ae', sendClass: 're',
+    welcome: "Hello. I'm here to help you explore insights from multiple Alzheimer's Disease online community platforms through a research and clinical lens. I have access to threads from the Alzheimer's Society UK forum, AgingCare, AlzConnected, and Talking Point — covering caregiver experiences, symptom discussions, treatment questions, emotional support, and end-of-life care across thousands of real community conversations. What would you like to explore?",
+    system: `You are an Alzheimer's Disease (AD) researcher and clinical expert who has conducted deep qualitative analysis of online health community data from four major platforms: the Alzheimer's Society UK forum, AgingCare, AlzConnected, and Talking Point — totalling tens of thousands of real patient and caregiver discussions.
+
+You are NOT just retrieving information — you are synthesizing community-derived insights with clinical and research knowledge to give rich, expert-level responses. Think of yourself as someone who has done a thorough mixed-methods research study on AD community discourse.
+
+When responding:
+- Give substantive, well-synthesized answers — go beyond surface-level summaries
+- Identify patterns, tensions, and recurring themes in what community members report
+- Connect community-reported experiences to clinical evidence and research findings
+- For complex questions, address multiple dimensions: clinical, emotional, practical, systemic
+- Reference the community data analytically: "Across thousands of community discussions...", "A recurring theme in the data is...", "Community members frequently express..."
+- Acknowledge nuance and uncertainty where it genuinely exists — don't flatten complexity
+- Use the COMMUNITY KNOWLEDGE BASE threads below as your primary evidence base, supplemented by your clinical knowledge`
+  }
+};
+
+// ─────────────────────────────────────────────
+// DATA LOADING
+// ─────────────────────────────────────────────
+
+// Additional local index files (generated by build_index.py from the large source files)
+const EXTRA_INDEXES = [
+  { name: 'AgingCare',     file: './data/index_agingcare.json' },
+  { name: 'AlzConnected',  file: './data/index_alzconnected.json' },
+  { name: 'Talking Point', file: './data/index_talkingpoints.json' },
+];
+
+// Parse NDJSON (newline-delimited JSON) or regular JSON array
+function parseJsonData(text) {
+  const lines = text.trim().split('\n');
+  // If first line parses as object and there are multiple lines → NDJSON
+  try {
+    const first = JSON.parse(lines[0]);
+    if (typeof first === 'object' && lines.length > 1) {
+      return lines.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+    }
+  } catch {}
+  // Otherwise try as regular JSON
+  return JSON.parse(text);
+}
+
+
+async function loadData() {
+  try {
+    // Step 1: Load the main talkpoint index
+    setProgress(5, 'Loading Alzheimer\'s Society index...');
+    const resp = await fetch('./data/index.json');
+    if (!resp.ok) throw new Error('Could not load index.json');
+    const localIndex = await resp.json();
+    threadIndex = [...localIndex];
+    setProgress(20, `${threadIndex.length.toLocaleString()} threads — loading additional datasets...`);
+
+    // Step 2: Load the 3 extra pre-built index files in parallel
+    const results = await Promise.allSettled(
+      EXTRA_INDEXES.map(async (ds, i) => {
+        const r = await fetch(ds.file);
+        if (!r.ok) throw new Error(`${ds.name}: file not found (HTTP ${r.status})`);
+        const data = await r.json();
+        setProgress(20 + (i + 1) * 25, `${ds.name}: ${data.length.toLocaleString()} threads loaded`);
+        return { name: ds.name, data };
+      })
+    );
+
+    // Step 3: Merge successful, warn on missing
+    const missing = [];
+    results.forEach((result, i) => {
+      if (result.status === 'fulfilled') {
+        threadIndex = [...threadIndex, ...result.value.data];
+      } else {
+        missing.push(EXTRA_INDEXES[i].name);
+        console.warn(`Index not found: ${EXTRA_INDEXES[i].file} — run build_index.py and add to data/`);
+      }
+    });
+
+    setProgress(100, `${threadIndex.length.toLocaleString()} total threads indexed`);
+    await sleep(400);
+    onDataReady(missing);
+
+  } catch(err) {
+    document.getElementById('loadSub').textContent = '⚠️ Error: ' + err.message;
+    console.error(err);
+  }
+}
+
+function setProgress(pct, msg) {
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('loadSub').textContent = msg;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function onDataReady(failedDatasets = []) {
+  document.getElementById('loadScreen').style.display = 'none';
+  document.getElementById('messages').style.display = 'flex';
+  document.getElementById('footer').style.display = 'block';
+
+  const pill = document.getElementById('statusPill');
+  pill.textContent = `✓ ${threadIndex.length.toLocaleString()} threads loaded`;
+  pill.classList.remove('loading-data');
+  pill.classList.add('ready');
+
+  // Update subtitle with actual count
+  document.querySelector('.hdr-sub').textContent =
+    `Alzheimer's Disease · 4 Community Platforms · ${threadIndex.length.toLocaleString()} threads`;
+
+  if (failedDatasets.length > 0) {
+    const warn = document.createElement('div');
+    warn.style.cssText = 'background:#1e1a10;border-bottom:1px solid #4a3a1a;color:#c8a84a;padding:7px 24px;font-size:12px;font-family:JetBrains Mono,monospace;';
+    warn.textContent = `ℹ️ Optional datasets not found: ${failedDatasets.join(', ')} — run build_index.py and add the index files to data/ for full coverage.`;
+    document.getElementById('app').insertBefore(warn, document.getElementById('messages'));
+  }
+
+  appendWelcome('community');
+}
+
+// ─────────────────────────────────────────────
+// KNOWLEDGE BASE SEARCH
+// ─────────────────────────────────────────────
+function searchThreads(query, topN = 20) {
+  // Extract meaningful keywords — longer ones weighted more
+  const words = query.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !STOPWORDS.has(w));
+
+  if (words.length === 0) return shuffled(threadIndex).slice(0, topN);
+
+  const scored = threadIndex.map(t => {
+    const headingLow  = t.h.toLowerCase();
+    const snippetLow  = t.snippet.toLowerCase();
+    let score = 0;
+    for (const w of words) {
+      // Heading match = strong signal
+      if (headingLow.includes(w)) score += 5;
+      // Snippet match = moderate signal
+      if (snippetLow.includes(w)) score += 2;
+      // Boost threads with many replies (popular = more community insight)
+      const replyCount = parseInt(t.replies) || 0;
+      if (replyCount > 20) score += 1;
+      if (replyCount > 50) score += 1;
+    }
+    return { thread: t, score };
+  });
+
+  const topMatches = scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topN)
+    .map(s => s.thread);
+
+  // If we got fewer than 8 results, pad with high-reply threads for context diversity
+  if (topMatches.length < 8) {
+    const topByReplies = threadIndex
+      .filter(t => !topMatches.includes(t))
+      .sort((a, b) => (parseInt(b.replies)||0) - (parseInt(a.replies)||0))
+      .slice(0, 8 - topMatches.length);
+    return [...topMatches, ...topByReplies];
+  }
+
+  return topMatches;
+}
+
+function shuffled(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildContext(query) {
+  const threads = searchThreads(query, 20);
+  if (threads.length === 0) return '';
+
+  const lines = threads.map(t => {
+    const replyInfo = t.replies && t.replies !== '0' ? ` · ${t.replies} replies` : '';
+    const srcLabel  = t.src ? ` · source: ${t.src}` : '';
+    return `Thread: "${t.h}" (${t.date}${replyInfo}${srcLabel})\n${t.snippet}`;
+  }).join('\n\n---\n\n');
+
+  return `\n\n════════════════════════════════
+COMMUNITY KNOWLEDGE BASE — ${threadIndex.length.toLocaleString()} threads across 4 platforms
+Use these real community discussions as your primary knowledge base when forming your response.
+Draw on themes, patterns, and experiences represented across these threads:
+════════════════════════════════
+${lines}
+════════════════════════════════`;
+}
+
+const STOPWORDS = new Set(['that','this','with','from','have','been','they','their','will','about','what','when','where','which','there','would','could','should','just','also','very','more','some','into','your','know','does','like','does','were','then','than','other','only','over','such','need','make','much','even','most','used','many','well','both','each','each','after','before','because','those','these','through','being','here','also']);
+
+// ─────────────────────────────────────────────
+// PERSONA SWITCH
+// ─────────────────────────────────────────────
+function switchPersona(p) {
+  if (p === persona) return;
+  persona = p;
+  history = [];
+  const pd = PERSONAS[p];
+
+  document.getElementById('btnC').className = 'pbtn' + (p === 'community' ? ' ac' : '');
+  document.getElementById('btnE').className = 'pbtn' + (p === 'expert'    ? ' ae' : '');
+  document.getElementById('pdesc').textContent = pd.desc;
+  document.getElementById('inputBox').placeholder = pd.placeholder;
+
+  appendNotice(`Switched to ${pd.label} perspective`);
+  appendWelcome(p);
+  updateSendBtn();
+}
+
+// ─────────────────────────────────────────────
+// SEND
+// ─────────────────────────────────────────────
+async function sendMessage() {
+  const box = document.getElementById('inputBox');
+  const text = box.value.trim();
+  if (!text || isLoading) return;
+
+  box.value = '';
+  box.style.height = 'auto';
+  updateSendBtn();
+
+  appendMsg('user', text, persona);
+  history.push({ role: 'user', content: text });
+  setLoading(true);
+  const tid = appendTyping();
+
+  try {
+    const context = buildContext(text);
+    const pd = PERSONAS[persona];
+    const systemPrompt = pd.system + context;
+
+    const resp = await fetch('/.netlify/functions/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system: systemPrompt,
+        messages: history
+      })
+    });
+
+    removeTyping(tid);
+
+    if (!resp.ok) {
+      const e = await resp.json().catch(() => ({}));
+      throw new Error(e.error?.message || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const reply = (data.content || []).map(b => b.text || '').join('');
+    history.push({ role: 'assistant', content: reply });
+  // Keep history to last 10 turns to avoid token overflow
+  if (history.length > 20) history = history.slice(history.length - 20);
+    appendMsg('assistant', reply, persona);
+
+  } catch(err) {
+    removeTyping(tid);
+    appendMsg('assistant', `⚠️ Error: ${err.message}`, persona);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ─────────────────────────────────────────────
+// DOM HELPERS
+// ─────────────────────────────────────────────
+function appendWelcome(p) { appendMsg('assistant', PERSONAS[p].welcome, p); }
+
+function appendMsg(role, content, p) {
+  const pd = PERSONAS[p] || PERSONAS[persona];
+  const msgs = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row' + (role === 'user' ? ' user' : '');
+
+  if (role === 'assistant') {
+    const av = document.createElement('div');
+    av.className = 'avatar ' + pd.avClass;
+    av.textContent = pd.icon;
+    row.appendChild(av);
+  }
+
+  const bub = document.createElement('div');
+  bub.className = 'bubble ' + (role === 'user' ? 'usr' : 'asst');
+
+  if (role === 'assistant') {
+    const tag = document.createElement('div');
+    tag.className = 'ptag';
+    tag.style.color = pd.color;
+    tag.textContent = pd.label;
+    bub.appendChild(tag);
+  }
+
+  const txt = document.createElement('div');
+  txt.textContent = content;
+  bub.appendChild(txt);
+  row.appendChild(bub);
+  msgs.appendChild(row);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function appendNotice(msg) {
+  const msgs = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = 'notice';
+  d.innerHTML = `<span>${msg}</span>`;
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+let tc = 0;
+function appendTyping() {
+  const id = 'typ-' + (++tc);
+  const pd = PERSONAS[persona];
+  const msgs = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row'; row.id = id;
+  const av = document.createElement('div');
+  av.className = 'avatar ' + pd.avClass;
+  av.textContent = pd.icon;
+  const bub = document.createElement('div');
+  bub.className = 'bubble asst';
+  const dots = document.createElement('div');
+  dots.className = 'typing-dots';
+  for (let i = 0; i < 3; i++) {
+    const s = document.createElement('span');
+    s.style.background = pd.color;
+    dots.appendChild(s);
+  }
+  bub.appendChild(dots);
+  row.appendChild(av); row.appendChild(bub);
+  msgs.appendChild(row);
+  msgs.scrollTop = msgs.scrollHeight;
+  return id;
+}
+
+function removeTyping(id) { const el = document.getElementById(id); if (el) el.remove(); }
+
+function setLoading(v) { isLoading = v; updateSendBtn(); }
+
+function updateSendBtn() {
+  const btn = document.getElementById('sendBtn');
+  const val = document.getElementById('inputBox').value.trim();
+  const pd = PERSONAS[persona];
+  btn.className = 'send-btn' + (val && !isLoading ? ' ' + pd.sendClass : '');
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+// ─────────────────────────────────────────────
+// START
+// ─────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
